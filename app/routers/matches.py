@@ -7,6 +7,12 @@ from app import models, schemas
 
 router = APIRouter(prefix="/matches", tags=["matches"])
 
+# LIST all matches
+@router.get("/", response_model=list[schemas.MatchResponse])
+def list_matches(db: Session = Depends(get_db)):
+    matches = db.query(models.Match).order_by(models.Match.created_at.desc()).all()
+    return matches
+
 
 # CREATE a new match
 @router.post("/", response_model=schemas.MatchResponse)
@@ -33,9 +39,24 @@ def update_score(match_id: UUID, score: schemas.ScoreUpdate, db: Session = Depen
     match = db.query(models.Match).filter(models.Match.id == match_id).first()
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
-
+    if match.status == "COMPLETED":
+        raise HTTPException(status_code=400, detail="Cannot update score of a completed match")
     match.score_a = score.score_a
     match.score_b = score.score_b
+    if match.status == "SCHEDULED":
+        match.status = "LIVE"
+    db.commit()
+    db.refresh(match)
+    return match
+
+
+# MARK a match as completed
+@router.patch("/{match_id}/complete", response_model=schemas.MatchResponse)
+def complete_match(match_id: UUID, db: Session = Depends(get_db)):
+    match = db.query(models.Match).filter(models.Match.id == match_id).first()
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    match.status = "COMPLETED"
     db.commit()
     db.refresh(match)
     return match
