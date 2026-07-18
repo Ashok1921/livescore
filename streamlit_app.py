@@ -1,11 +1,14 @@
 import streamlit as st
 import requests
 import os
+from streamlit_autorefresh import st_autorefresh
 
 API_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
 
 st.set_page_config(page_title="LiveScore", page_icon="🏏", layout="centered")
 st.title("🏏 LiveScore")
+# Auto-refresh every 3 seconds (3000 ms)
+st_autorefresh(interval=3000, key="score_autorefresh")
 
 # ---------- Helper functions to call the FastAPI backend ----------
 
