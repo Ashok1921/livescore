@@ -74,6 +74,20 @@ Repo: https://github.com/Ashok1921/livescore
 - Tested and confirmed working both via Swagger UI (`/docs`) and the
   Streamlit app — deleting a match removes it from the list immediately
 
+## Phase 5 — Auto-refresh live scores (done)
+
+- Added `streamlit-autorefresh` to `requirements.txt`
+- Updated `streamlit_app.py`:
+  - Added `from streamlit_autorefresh import st_autorefresh`
+  - Added `st_autorefresh(interval=3000, key="score_autorefresh")` right
+    after `st.title("🏏 LiveScore")` — triggers a full script rerun every
+    3 seconds, so `get_matches()` is called automatically without any
+    manual refresh or button click
+- Rebuilt with `docker compose up --build` (new package needed installing)
+- Confirmed working via backend logs — repeated automatic
+  `GET /matches/ HTTP/1.1 200 OK` requests appearing every ~3 seconds
+  on their own
+
 ## Notes / decisions made
 
 - Docker was explored but not used for the real project — a separate folder
@@ -82,18 +96,15 @@ Repo: https://github.com/Ashok1921/livescore
   The real project lives at `C:\Users\Ashok\AVSCODE\livescore`.
 - Decision: finish core features first, containerize with Docker at the end,
   once the app is feature-complete — to avoid debugging code and infra at once.
-  (This is now done — see Phase 3.)
+  (Done — see Phase 3.)
 
-## Next up (in progress / not started)
+## Next up (not started)
 
-- [ ] **In progress:** Auto-refresh live scores in Streamlit
-  - Decision made: use the `streamlit-autorefresh` package, 3-second interval
-  - Steps given: add `streamlit-autorefresh` to `requirements.txt`; add
-    `from streamlit_autorefresh import st_autorefresh` and
-    `st_autorefresh(interval=3000, key="score_autorefresh")` right after
-    `st.title(...)` in `streamlit_app.py`
-  - Not yet applied/tested — rebuild with `docker compose up --build` once added
-- [ ] Resume: add this project as a bullet point with GitHub link once polished
+- [ ] Commit and push the auto-refresh changes:
+      `git add . && git commit -m "Add 3-second auto-refresh to Streamlit frontend" && git push`
+- [ ] Resume: add this project as a bullet point with GitHub link, once polished
+- [ ] Optional/future: live-reload volume mounts for faster dev loop (skip
+      rebuilds when only `streamlit_app.py` or `app/` changes)
 
 ## How to resume a session
 
