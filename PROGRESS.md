@@ -1,4 +1,3 @@
-
 # LiveScore — Progress Log
 
 Project: FastAPI + PostgreSQL + Streamlit full-stack app, inspired by the open-source CricScore project.
@@ -32,26 +31,83 @@ Repo: https://github.com/Ashok1921/livescore
 - Tested full round trip: Postgres <-> FastAPI <-> Streamlit, all working
 - Committed and pushed to GitHub (commit `c729517`)
 
+## Phase 3 — Dockerization (done)
+
+- Made code Docker-ready:
+  - `app/database.py` was already reading `DATABASE_URL` from env — no change needed
+  - `streamlit_app.py` updated: `API_URL` now reads from `BACKEND_URL` env var
+    (`os.getenv("BACKEND_URL", "http://127.0.0.1:8000")`) instead of a hardcoded
+    `localhost` — required so the frontend container can reach the backend
+    container by service name
+- Generated `requirements.txt` via `pip freeze`
+- Created `Dockerfile.backend` — builds FastAPI image, runs uvicorn on `0.0.0.0:8000`
+- Created `Dockerfile.frontend` — builds Streamlit image, runs on `0.0.0.0:8501`
+- Created `docker-compose.yml` with 3 services:
+  - `db` — Postgres 16, with healthcheck; host port mapped to **5433** (not 5432)
+    to avoid clashing with the native Windows Postgres install; data persisted
+    via a named volume (`pgdata`)
+  - `backend` — builds from `Dockerfile.backend`, waits for `db` to be healthy,
+    connects via `DATABASE_URL=postgresql://livescore_user:livescore_pass@db:5432/livescore_db`
+  - `frontend` — builds from `Dockerfile.frontend`, waits for `backend`,
+    connects via `BACKEND_URL=http://backend:8000`
+- Ran `docker compose up --build` successfully — all 3 containers
+  (`db-1`, `backend-1`, `frontend-1`) came up healthy/running
+- Verified both UIs work identically to the non-Docker version:
+  - Backend docs: http://127.0.0.1:8000/docs
+  - Frontend: http://localhost:8501
+- Note: code changes require a rebuild (`docker compose up --build`) to take
+  effect — no live-reload volume mount is set up yet (optional future step:
+  mount `./streamlit_app.py` and `./app` into the containers for instant reload)
+
+## Phase 4 — Delete match endpoint (done)
+
+- Added `DELETE /matches/{match_id}` in `app/routers/matches.py`
+  - Important: `match_id` must be typed as `UUID` (not `int`) — the `Match.id`
+    column is a `UUID` primary key, so typing it as `int` causes a
+    422 Unprocessable Entity error
+  - Returns `404` if the match doesn't exist, otherwise deletes and returns `204`
+- Added matching frontend support in `streamlit_app.py`:
+  - `delete_match(match_id)` helper function (sends the DELETE request)
+  - A "🗑️ Delete Match" button shown for **every** match card (not just
+    completed ones — placed outside/after the status if/else block)
+  - On success (`204`), shows a success message and calls `st.rerun()`
+- Tested and confirmed working both via Swagger UI (`/docs`) and the
+  Streamlit app — deleting a match removes it from the list immediately
+
 ## Notes / decisions made
 
 - Docker was explored but not used for the real project — a separate folder
   (`C:\Users\Ashok\LiveScore`, capital L) had Docker + WSL setup as a learning
   exercise, with no real features built. That folder was deleted on 2026-07-16.
-  The real project lives at `C:\Users\Ashok\AVSCODE\livescore` and currently
-  uses local (non-Docker) PostgreSQL.
+  The real project lives at `C:\Users\Ashok\AVSCODE\livescore`.
 - Decision: finish core features first, containerize with Docker at the end,
   once the app is feature-complete — to avoid debugging code and infra at once.
+  (This is now done — see Phase 3.)
 
-## Next up (not started yet)
+## Next up (in progress / not started)
 
-- [ ] Docker setup (Dockerfile + docker-compose.yml) for the real project folder
-- [ ] Delete match endpoint
-- [ ] Auto-refresh live scores in Streamlit (currently manual button clicks)
+- [ ] **In progress:** Auto-refresh live scores in Streamlit
+  - Decision made: use the `streamlit-autorefresh` package, 3-second interval
+  - Steps given: add `streamlit-autorefresh` to `requirements.txt`; add
+    `from streamlit_autorefresh import st_autorefresh` and
+    `st_autorefresh(interval=3000, key="score_autorefresh")` right after
+    `st.title(...)` in `streamlit_app.py`
+  - Not yet applied/tested — rebuild with `docker compose up --build` once added
 - [ ] Resume: add this project as a bullet point with GitHub link once polished
 
 ## How to resume a session
 
-Run the app locally with two terminals:
+Run the app with Docker (recommended, matches current setup):
+
+```powershell
+cd C:\Users\Ashok\AVSCODE\livescore
+docker compose up --build
+```
+
+- Backend docs: http://127.0.0.1:8000/docs
+- Frontend: http://localhost:8501
+
+Or run natively (two terminals, without Docker):
 
 ```powershell
 # Terminal 1 - backend
@@ -65,15 +121,5 @@ venv\Scripts\Activate.ps1
 streamlit run streamlit_app.py
 ```
 
-Backend docs: http://127.0.0.1:8000/docs
-Frontend: http://localhost:8501
-
 To pick up with Claude next time: paste this file's contents, or say
 "here's my LiveScore PROGRESS.md" and share what you want to work on next.
-
-# LIST all matches
-
-@router.get("/", response_model=list[schemas.MatchResponse])
-def list_matches(db: Session = Depends(get_db)):
-    matches = db.query(models.Match).order_by(models.Match.created_at.desc()).all()
-    return matches
