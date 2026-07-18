@@ -31,6 +31,11 @@ def complete_match(match_id):
     response.raise_for_status()
     return response.json()
 
+#ADDED AFTER DELETE FUN IN MATCHES.PY TO DELETE IT
+def delete_match(match_id):
+    response = requests.delete(f"{API_URL}/matches/{match_id}")
+    return response
+
 
 # ---------- Section 1: Create a new match ----------
 
@@ -97,3 +102,15 @@ else:
                     st.rerun()
             else:
                 st.write("✅ Match completed — score locked.")
+                
+            if st.button("🗑️ Delete Match", key=f"delete_{match['id']}"):
+                resp = delete_match(match["id"])
+                if resp.status_code == 204:
+                    st.success("Match deleted!")
+                    st.rerun()
+                else:
+                    st.error("Failed to delete match")
+                
+                
+                
+                

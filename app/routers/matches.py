@@ -60,3 +60,12 @@ def complete_match(match_id: UUID, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(match)
     return match
+
+#TO UPDATE THIS PROJECT LATER ADDED THIS
+@router.delete("/{match_id}", status_code=204)
+def delete_match(match_id: UUID, db: Session = Depends(get_db)):
+    match = db.query(models.Match).filter(models.Match.id == match_id).first()
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    db.delete(match)
+    db.commit()
