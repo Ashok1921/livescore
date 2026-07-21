@@ -101,10 +101,40 @@ Repo: https://github.com/Ashok1921/livescore
 ## Next up (not started)
 
 - [ ] Commit and push the auto-refresh changes:
-      `git add . && git commit -m "Add 3-second auto-refresh to Streamlit frontend" && git push`
+  `git add . && git commit -m "Add 3-second auto-refresh to Streamlit frontend" && git push`
 - [ ] Resume: add this project as a bullet point with GitHub link, once polished
 - [ ] Optional/future: live-reload volume mounts for faster dev loop (skip
-      rebuilds when only `streamlit_app.py` or `app/` changes)
+  rebuilds when only `streamlit_app.py` or `app/` changes)
+
+
+
+
+## Automated Testing
+
+- Added pytest test suite (tests/conftest.py, tests/test_matches.py)
+- Uses a separate test Postgres database (livescore_test) for full isolation from real data
+- 7 tests covering: create match, get match, get-not-found (404), list matches,
+  score update moving status to LIVE, blocking score updates after COMPLETED
+  (data integrity rule), and delete match
+- All tests passing
+- pytest.ini added with `pythonpath = .` to resolve app imports correctly
+
+## Cloud Deployment (Render)
+
+- Deployed full stack to Render's free tier (Singapore region)
+- **Postgres database**: livescore-db (managed, free tier — expires ~Aug 20, 2026
+  unless upgraded to a paid plan)
+- **Backend**: livescore-backend (FastAPI, Dockerfile.backend)
+  → https://livescore-backend-z0x4.onrender.com
+- **Frontend**: livescore-frontend (Streamlit, Dockerfile.frontend)
+  → https://livescore-frontend-ziwp.onrender.com
+- Confirmed working end-to-end: create, live score update, mark completed, delete
+- Note: free tier instances spin down after inactivity (~50s wake-up delay on first request)
+
+## Next up
+
+- Authentication (JWT)
+- WebSockets (deferred — Streamlit's rerun model makes this a bigger architectural change than a simple swap)
 
 ## How to resume a session
 
