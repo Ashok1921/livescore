@@ -26,6 +26,8 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://livescore_user:livescore_pass@db:5432/livescore_db
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
     ports:
       - "8000:8000"
 

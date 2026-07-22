@@ -106,9 +106,6 @@ Repo: https://github.com/Ashok1921/livescore
 - [ ] Optional/future: live-reload volume mounts for faster dev loop (skip
   rebuilds when only `streamlit_app.py` or `app/` changes)
 
-
-
-
 ## Automated Testing
 
 - Added pytest test suite (tests/conftest.py, tests/test_matches.py)
@@ -131,10 +128,43 @@ Repo: https://github.com/Ashok1921/livescore
 - Confirmed working end-to-end: create, live score update, mark completed, delete
 - Note: free tier instances spin down after inactivity (~50s wake-up delay on first request)
 
-## Next up
+
+
+## Authentication (Stage 1 — Users table + password hashing) ✅ Complete
+
+**Date:** 2026-07-22
+
+**Goal:** Single-admin-user authentication foundation, designed so multi-user/admin roles can be added later without a rewrite.
+
+**What was built:**
+
+- `User` model added in `app/models.py` (id: UUID, username, hashed_password, created_at)
+- `app/auth.py` created with:
+  - `hash_password()` / `verify_password()` using `passlib` + `bcrypt`
+  - `seed_admin_user(db)` — auto-creates one admin user on startup from `ADMIN_USERNAME` / `ADMIN_PASSWORD` env vars, if the `users` table is empty
+- Startup hook wired in `app/main.py` (`@app.on_event("startup")`) to call `seed_admin_user()`
+- `.env` updated with `ADMIN_USERNAME` / `ADMIN_PASSWORD`
+- `docker-compose.yml` updated to pass those two env vars into the `backend` service (`${ADMIN_USERNAME}` / `${ADMIN_PASSWORD}` syntax) — **critical**: Compose does NOT auto-forward local `.env` into containers unless explicitly declared here
+- `requirements.txt`: added `passlib[bcrypt]`, `python-jose[cryptography]`, `python-multipart`, and pinned `bcrypt==4.0.1` (newer bcrypt versions break passlib's version-detection, causing a "password cannot be longer than 72 bytes" false error)
+- `Dockerfile.backend`: added `ENV PYTHONUNBUFFERED=1` so `print()` output shows up in `docker compose logs` (Python buffers stdout by default when not attached to a real terminal)
+
+**Bugs hit + fixed along the way (for reference if they recur):**
+
+1. `ModuleNotFoundError: No module named 'database'` — `main.py` had inconsistent import style; some imports used `app.database`, others used bare `database`. Fixed by making all intra-package imports consistently use the `app.` prefix.
+2. `auth.py` was accidentally created at the project root instead of inside `app/` — moved into `app/` to match `main.py`, `database.py`, `models.py`.
+3. bcrypt/passlib version incompatibility (see above) — fixed by pinning `bcrypt==4.0.1`.
+4. `docker compose up` (without `-d`) runs in the foreground — closing/losing that terminal session stops all containers. Switched to `docker compose up --build -d` (detached) for day-to-day work, `docker compose logs backend` to check logs afterward.
+
+**Verified:** Queried `users` table directly via `docker exec -it livescore-db-1 psql -U livescore_user -d livescore_db -c "SELECT * FROM users;"` — confirmed one row (`ashok`) with a properly bcrypt-hashed password (`$2b$12$...`), not plaintext.
+
+**Next (Stage 2):** `/auth/login` endpoint — JWT token generation/verification, protecting match create/update/delete endpoints while keeping list/get public.
+
+
+xt up
 
 - Authentication (JWT)
 - WebSockets (deferred — Streamlit's rerun model makes this a bigger architectural change than a simple swap)
+- 
 
 ## How to resume a session
 
