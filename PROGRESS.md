@@ -192,6 +192,39 @@ Repo: https://github.com/Ashok1921/livescore
 - Leave list/view calls unauthenticated
 
 
+## Authentication — Frontend Integration (Streamlit)
+
+**Status:** Complete
+
+Integrated JWT authentication into the Streamlit frontend, building on the backend auth work from Stages 1 and 2.
+
+### What was added
+
+- Session state (`token`, `username`, `logged_in`) to track auth status across reruns
+- `login()` / `logout()` functions calling the `/auth/login` backend endpoint
+- Sidebar UI: login form when logged out, "Logged in as {username}" + Logout button when logged in
+- `auth_headers()` helper attaching the bearer token to protected requests
+- `create_match`, `update_score`, `delete_match`, and `complete_match` now send the `Authorization: Bearer` header and handle `401` responses gracefully
+- UI checks (`Create Match`, `Mark Completed`, `Delete Match`) show a clear "Please log in..." message when attempted while logged out, instead of failing silently or crashing
+
+### Bugs fixed along the way
+
+- `login()` referenced an undefined `BACKEND_URL` variable instead of the file's actual `API_URL` — caused a `NameError` on every login attempt
+- Leftover commented-out code used a triple-quoted string instead of `#` comments — Streamlit's "magic commands" rendered it as visible text on the page
+- Success/error messages were disappearing before they could be read, due to the 3-second `st_autorefresh` wiping them on rerun — fixed with a `flash_message` / `flash_type` session-state pattern that displays a message once, then clears it
+
+### Testing
+
+Manually verified end-to-end:
+
+- Logged out: all four write actions (create, update score, mark completed, delete) correctly blocked with a visible message
+- Logged in: all four actions succeed with a visible success message
+
+### Next
+
+- Commit and push this work to GitHub
+- Decide next feature: WebSockets (previously deferred) or another item
+
 
 
 xt up
