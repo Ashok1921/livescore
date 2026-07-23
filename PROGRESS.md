@@ -128,8 +128,6 @@ Repo: https://github.com/Ashok1921/livescore
 - Confirmed working end-to-end: create, live score update, mark completed, delete
 - Note: free tier instances spin down after inactivity (~50s wake-up delay on first request)
 
-
-
 ## Authentication (Stage 1 — Users table + password hashing) ✅ Complete
 
 **Date:** 2026-07-22
@@ -157,7 +155,43 @@ Repo: https://github.com/Ashok1921/livescore
 
 **Verified:** Queried `users` table directly via `docker exec -it livescore-db-1 psql -U livescore_user -d livescore_db -c "SELECT * FROM users;"` — confirmed one row (`ashok`) with a properly bcrypt-hashed password (`$2b$12$...`), not plaintext.
 
-**Next (Stage 2):** `/auth/login` endpoint — JWT token generation/verification, protecting match create/update/delete endpoints while keeping list/get public.
+**Next (Stage 2):** `/auth/login` endpoint — JWT token generation/verification, protecting match create/update/delete endpoints while keeping list/get public
+
+
+
+## Stage 2: Authentication (JWT) — COMPLETE
+
+- Added JWT_SECRET_KEY, JWT_ALGORITHM, JWT_EXPIRE_MINUTES as env vars (docker-compose.yml + .env)
+- Added python-jose[cryptography]==3.3.0 to requirements.txt
+- app/auth.py: added create_access_token() / decode_access_token() helpers
+- app/routers/auth.py (new): POST /auth/login — verifies credentials, returns JWT access_token
+- Registered auth.router in main.py alongside matches.router
+- app/auth.py: added get_current_user() dependency using HTTPBearer
+  (switched from OAuth2PasswordBearer — its form-encoded flow didn't match
+  our JSON-based /auth/login and caused 422 errors in Swagger's Authorize dialog)
+- app/routers/matches.py: protected write endpoints with
+  current_user: User = Depends(get_current_user):
+  - POST   /matches/
+  - PATCH  /matches/{match_id}/score
+  - PATCH  /matches/{match_id}/complete
+  - DELETE /matches/{match_id}
+    Left public (no auth required):
+  - GET /matches/
+  - GET /matches/{match_id}
+- Verified end-to-end via Swagger UI (/docs):
+  - Login returns valid token
+  - Authorize + paste token → protected POST succeeds (200)
+  - Logout → same POST returns 401 (confirms protection is enforced, not decorative)
+- Committed and pushed to GitHub: commit 7289543
+  "Add JWT authentication: login endpoint and protected write routes"
+
+## Next: Stage 3 — Streamlit frontend integration
+
+- Add login form + session state to store JWT
+- Attach Authorization: Bearer <token></token> header on create/update/delete calls
+- Leave list/view calls unauthenticated
+
+
 
 
 xt up
