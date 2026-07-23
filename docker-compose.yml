@@ -28,6 +28,9 @@ services:
       DATABASE_URL: postgresql://livescore_user:livescore_pass@db:5432/livescore_db
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_ALGORITHM: HS256
+      JWT_EXPIRE_MINUTES: 60
     ports:
       - "8000:8000"
 

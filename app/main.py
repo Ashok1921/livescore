@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 
 from app.database import engine, Base
-from app.routers import matches
+from app.routers import matches, auth
 from app.database import SessionLocal
 from app.auth import seed_admin_user
 
@@ -12,6 +12,9 @@ app = FastAPI(title="LiveScore API")
 
 # Wire in the matches endpoints
 app.include_router(matches.router)
+
+# Wire in the auth endpoints
+app.include_router(auth.router)
 
 
 @app.get("/")
