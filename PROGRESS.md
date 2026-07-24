@@ -157,8 +157,6 @@ Repo: https://github.com/Ashok1921/livescore
 
 **Next (Stage 2):** `/auth/login` endpoint — JWT token generation/verification, protecting match create/update/delete endpoints while keeping list/get public
 
-
-
 ## Stage 2: Authentication (JWT) — COMPLETE
 
 - Added JWT_SECRET_KEY, JWT_ALGORITHM, JWT_EXPIRE_MINUTES as env vars (docker-compose.yml + .env)
@@ -191,7 +189,6 @@ Repo: https://github.com/Ashok1921/livescore
 - Attach Authorization: Bearer <token></token> header on create/update/delete calls
 - Leave list/view calls unauthenticated
 
-
 ## Authentication — Frontend Integration (Streamlit)
 
 **Status:** Complete
@@ -220,12 +217,31 @@ Manually verified end-to-end:
 - Logged out: all four write actions (create, update score, mark completed, delete) correctly blocked with a visible message
 - Logged in: all four actions succeed with a visible success message
 
+## Authentication — Test Suite Fixes
+
+**Status:** Complete
+
+Updated the pytest suite to work correctly with the JWT auth added in previous stages.
+
+### What was added
+
+- `auth_headers` fixture in `conftest.py` — seeds a `test_admin` user directly into the test DB session and generates a valid bearer token via `create_access_token`, avoiding any dependency on the seeded production admin account
+- All write-endpoint tests (`test_create_match`, `test_get_match`, `test_list_matches`, `test_update_score_moves_to_live`, `test_cannot_update_score_after_completed`, `test_delete_match`) updated to pass the bearer token via `headers=auth_headers`
+- New tests added: `test_create_match_requires_auth` and `test_delete_match_requires_auth`, verifying unauthenticated requests are correctly rejected with `401`
+
+### Bugs fixed along the way
+
+- `get_current_user` does a DB lookup on the token's `sub` claim — tests need a matching user row in the test DB, not just a well-formed JWT, which is why `auth_headers` seeds a real user rather than just encoding a token
+- Hit a `passlib`/`bcrypt` compatibility issue: newer `bcrypt` (4.1+) removed an internal attribute (`__about__`) that `passlib`'s startup self-test relies on, causing every `hash_password()` call to crash with `"password cannot be longer than 72 bytes"` — even on short passwords, since the crash was in passlib's own internal test string, not user input. Fixed by pinning `bcrypt==4.0.1` in `requirements.txt`
+
+### Testing
+
+All 9 tests passing:
+
 ### Next
 
 - Commit and push this work to GitHub
 - Decide next feature: WebSockets (previously deferred) or another item
-
-
 
 xt up
 
