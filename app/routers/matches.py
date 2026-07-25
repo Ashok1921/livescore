@@ -8,6 +8,10 @@ from app import models, schemas
 from app.auth import get_current_user
 from app.models import User
 
+from app.ws_manager import manager
+
+
+
 router = APIRouter(prefix="/matches", tags=["matches"])
 
 # LIST all matches
@@ -19,7 +23,7 @@ def list_matches(db: Session = Depends(get_db)):
 
 # CREATE a new match
 @router.post("/", response_model=schemas.MatchResponse)
-def create_match(
+async def create_match(
     match: schemas.MatchCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -27,7 +31,10 @@ def create_match(
     new_match = models.Match(team_a=match.team_a, team_b=match.team_b)
     db.add(new_match)
     db.commit()
-    db.refresh(new_match)  # reloads it from DB so we get the generated id/created_at
+    db.refresh(new_match)
+
+    await manager.broadcast({"event": "match_created", "match_id": str(new_match.id)})
+
     return new_match
 
 
@@ -42,7 +49,7 @@ def get_match(match_id: UUID, db: Session = Depends(get_db)):
 
 # UPDATE a match's score
 @router.patch("/{match_id}/score", response_model=schemas.MatchResponse)
-def update_score(
+async def update_score(
     match_id: UUID,
     score: schemas.ScoreUpdate,
     db: Session = Depends(get_db),
@@ -59,12 +66,15 @@ def update_score(
         match.status = "LIVE"
     db.commit()
     db.refresh(match)
+
+    await manager.broadcast({"event": "score_updated", "match_id": str(match.id)})
+
     return match
 
 
 # MARK a match as completed
 @router.patch("/{match_id}/complete", response_model=schemas.MatchResponse)
-def complete_match(
+async def complete_match(
     match_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -75,11 +85,14 @@ def complete_match(
     match.status = "COMPLETED"
     db.commit()
     db.refresh(match)
+
+    await manager.broadcast({"event": "match_completed", "match_id": str(match.id)})
+
     return match
 
 #TO UPDATE THIS PROJECT LATER ADDED THIS
 @router.delete("/{match_id}", status_code=204)
-def delete_match(
+async def delete_match(
     match_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -89,3 +102,5 @@ def delete_match(
         raise HTTPException(status_code=404, detail="Match not found")
     db.delete(match)
     db.commit()
+
+    await manager.broadcast({"event": "match_deleted", "match_id": str(match_id)})

@@ -1,10 +1,11 @@
 import streamlit as st
 import requests
 import os
-from streamlit_autorefresh import st_autorefresh
+#from streamlit_autorefresh import st_autorefresh
+import streamlit.components.v1 as components
 
 
-
+ws_listener = components.declare_component("ws_listener", path="components/ws_listener")
 
 API_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
 
@@ -15,12 +16,13 @@ if "username" not in st.session_state:
     st.session_state.username = None
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
-if "flash_message" not in st.session_state:
-    st.session_state.flash_message = None
-if "flash_type" not in st.session_state:
-    st.session_state.flash_type = None  # "success" or "error"
 
 
+if "last_ws_message" not in st.session_state:
+    st.session_state.last_ws_message = None  
+if "skip_next_ws_check" not in st.session_state:        
+    st.session_state.skip_next_ws_check = False      
+    
 
 def login(username: str, password: str) -> bool:
     """Calls /auth/login and populates session state on success."""
@@ -57,18 +59,22 @@ def auth_headers():
 
 st.set_page_config(page_title="LiveScore", page_icon="🏏", layout="centered")
 st.title("🏏 LiveScore")
+
 # Auto-refresh every 3 seconds (3000 ms)
-st_autorefresh(interval=3000, key="score_autorefresh")
+#st_autorefresh(interval=3000, key="score_autorefresh")
 
-# ---------- Flash message display (shown once, then cleared) ----------
-if st.session_state.flash_message:
-    if st.session_state.flash_type == "success":
-        st.success(st.session_state.flash_message)
-    else:
-        st.error(st.session_state.flash_message)
-    st.session_state.flash_message = None
-    st.session_state.flash_type = None
 
+#websocket check
+ws_message = ws_listener(key="ws_listener")
+
+if st.session_state.skip_next_ws_check:
+    st.session_state.skip_next_ws_check = False
+    st.session_state.last_ws_message = ws_message  # acknowledge it silently, no rerun
+elif ws_message is not None and ws_message != st.session_state.last_ws_message:
+    st.session_state.last_ws_message = ws_message
+    st.rerun()
+    
+    
 
 # ---------- Sidebar: Login / Logout ----------
 with st.sidebar:
@@ -76,8 +82,8 @@ with st.sidebar:
         st.write(f"Logged in as **{st.session_state.username}**")
         if st.button("Logout"):
             logout()
-            st.session_state.flash_message = "Logged out successfully"
-            st.session_state.flash_type = "success"
+            st.toast("Logged out successfully", icon="✅")
+            st.session_state.skip_next_ws_check = True
             st.rerun()
     else:
         st.subheader("Admin Login")
@@ -87,13 +93,11 @@ with st.sidebar:
             submitted = st.form_submit_button("Login")
             if submitted:
                 if login(username, password):
-                    st.session_state.flash_message = "Logged in successfully"
-                    st.session_state.flash_type = "success"
+                    st.toast("Logged in successfully", icon="✅")
+                    st.session_state.skip_next_ws_check = True
                     st.rerun()
                 else:
-                    st.session_state.flash_message = "Invalid username or password"
-                    st.session_state.flash_type = "error"
-                    st.rerun()
+                    st.toast("Invalid username or password", icon="❌")
 
 
 # ---------- Helper functions to call the FastAPI backend ----------
@@ -142,21 +146,17 @@ with st.form("create_match_form"):
         if not team_a or not team_b:
             st.warning("Please enter both team names.")
         elif not st.session_state.logged_in:
-            st.session_state.flash_message = "Please log in to create a match."
-            st.session_state.flash_type = "error"
-            st.rerun()
+            st.toast("Please log in to create a match.", icon="❌")
         else:
             resp = create_match(team_a, team_b)
             if resp.status_code in (200, 201):
                 new_match = resp.json()
-                st.session_state.flash_message = f"Match created: {new_match['team_a']} vs {new_match['team_b']}"
-                st.session_state.flash_type = "success"
+                st.toast(f"Match created: {new_match['team_a']} vs {new_match['team_b']}", icon="✅")
             elif resp.status_code == 401:
-                st.session_state.flash_message = "Session expired. Please log in again."
-                st.session_state.flash_type = "error"
+                st.toast("Session expired. Please log in again.", icon="❌")
             else:
-                st.session_state.flash_message = f"Failed to create match: {resp.text}"
-                st.session_state.flash_type = "error"
+                st.toast(f"Failed to create match: {resp.text}", icon="❌")
+            st.session_state.skip_next_ws_check = True
             st.rerun()
 
 # ---------- Section 2: List all matches ----------
@@ -193,27 +193,23 @@ else:
                 if col3.button("Update Score", key=f"update_{match['id']}"):
                     resp = update_score(match["id"], new_score_a, new_score_b)
                     if resp.status_code == 200:
-                        st.session_state.flash_message = "Score updated!"
-                        st.session_state.flash_type = "success"
+                        st.toast("Score updated!", icon="✅")
                     elif resp.status_code == 401:
-                        st.session_state.flash_message = "Please log in to update score."
-                        st.session_state.flash_type = "error"
+                        st.toast("Please log in to update score.", icon="❌")
                     else:
-                        st.session_state.flash_message = resp.json().get("detail", "Failed to update score")
-                        st.session_state.flash_type = "error"
+                        st.toast(resp.json().get("detail", "Failed to update score"), icon="❌")
+                    st.session_state.skip_next_ws_check = True
                     st.rerun()
 
                 if st.button("Mark Completed", key=f"complete_{match['id']}"):
                     resp = complete_match(match["id"])
                     if resp.status_code == 200:
-                        st.session_state.flash_message = "Match marked as completed!"
-                        st.session_state.flash_type = "success"
+                        st.toast("Match marked as completed!", icon="✅")
                     elif resp.status_code == 401:
-                        st.session_state.flash_message = "Please log in to complete a match."
-                        st.session_state.flash_type = "error"
+                        st.toast("Please log in to complete a match.", icon="❌")
                     else:
-                        st.session_state.flash_message = "Failed to mark match completed"
-                        st.session_state.flash_type = "error"
+                        st.toast("Failed to mark match completed", icon="❌")
+                    st.session_state.skip_next_ws_check = True
                     st.rerun()
             else:
                 st.write("✅ Match completed — score locked.")
@@ -221,12 +217,10 @@ else:
             if st.button("🗑️ Delete Match", key=f"delete_{match['id']}"):
                 resp = delete_match(match["id"])
                 if resp.status_code == 204:
-                    st.session_state.flash_message = "Match deleted!"
-                    st.session_state.flash_type = "success"
+                    st.toast("Match deleted!", icon="✅")
                 elif resp.status_code == 401:
-                    st.session_state.flash_message = "Please log in to delete a match."
-                    st.session_state.flash_type = "error"
+                    st.toast("Please log in to delete a match.", icon="❌")
                 else:
-                    st.session_state.flash_message = "Failed to delete match"
-                    st.session_state.flash_type = "error"
+                    st.toast("Failed to delete match", icon="❌")
+                st.session_state.skip_next_ws_check = True
                 st.rerun()

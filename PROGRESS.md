@@ -246,8 +246,42 @@ All 9 tests passing:
 xt up
 
 - Authentication (JWT)
-- WebSockets (deferred — Streamlit's rerun model makes this a bigger architectural change than a simple swap)
-- 
+- WebSockets (deferred — Streamlit's rerun model makes this a bigger architectural change than a simple swap.
+
+## Real-Time Updates via WebSockets
+
+**Status:** Complete (core functionality); known minor cosmetic gap
+
+Replaced the 3-second polling `st_autorefresh` with real-time push updates using WebSockets.
+
+### What was added
+
+- `app/ws_manager.py` — `ConnectionManager` class tracking connected clients and broadcasting JSON messages
+- `/ws/matches` WebSocket endpoint in `main.py`
+- Broadcast calls added to `create_match`, `update_score`, `complete_match`, `delete_match` in `matches.py` (routes converted to `async def` to support `await manager.broadcast(...)`)
+- Custom bidirectional Streamlit component (`components/ws_listener/index.html`) implementing Streamlit's official component postMessage protocol (`componentReady`, `setFrameHeight`, `setComponentValue`), registered via `components.declare_component(...)` in `streamlit_app.py`
+- `Dockerfile.frontend` updated to copy the new `components/` folder into the container
+
+### Bugs fixed / technical hurdles along the way
+
+- Initial approach (`components.html` triggering `window.parent.location.reload()`) failed: Streamlit sandboxes `components.html` in an iframe without `allow-top-navigation`, so browsers block the actual page navigation with a `SecurityError` — confirmed via console logs showing the script executing but navigation being blocked
+- Solved by building a proper custom bidirectional component instead, using Streamlit's trusted `setComponentValue` postMessage channel rather than raw browser navigation — this preserves `session_state` (including login) since it triggers a real Streamlit rerun, not a full page reload
+- Added a `skip_next_ws_check` flag to prevent a tab's own broadcast (received via its own WebSocket connection) from triggering a redundant extra rerun right after the user's own action
+
+### Known issue (deprioritized)
+
+- Success/error toast messages don't always display reliably after an action, due to a race between the manual rerun after an action and the WebSocket component's own automatic rerun (triggered by receiving its own broadcast). Core real-time sync and login persistence both work correctly; this is a cosmetic-only gap, not a functional one.
+
+### Testing
+
+Manually verified across two browser tabs: an action (create/update/complete/delete) in one tab is reflected in the other within a second, without needing a manual refresh, and without logging either tab out.
+
+### Next
+
+- TBD — possible directions: revisit the toast display race, add more features, or move to deployment/polish
+
+
+
 
 ## How to resume a session
 

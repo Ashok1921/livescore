@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script>
+  function sendMessageToStreamlit(type, data) {
+    const outgoingData = Object.assign({ isStreamlitMessage: true, type: type }, data);
+    window.parent.postMessage(outgoingData, "*");
+  }
+
+  function initialize() {
+    sendMessageToStreamlit("streamlit:componentReady", { apiVersion: 1 });
+    sendMessageToStreamlit("streamlit:setFrameHeight", { height: 0 });
+  }
+
+  window.addEventListener("load", function() {
+    initialize();
+
+    const ws = new WebSocket("ws://localhost:8000/ws/matches");
+
+    ws.onopen = function() {
+      console.log("WS listener connected");
+    };
+
+    ws.onmessage = function(event) {
+      sendMessageToStreamlit("streamlit:setComponentValue", {
+        value: event.data,
+        dataType: "json",
+      });
+    };
+
+    ws.onclose = function() {
+      console.log("WS listener closed, retrying in 3s...");
+      setTimeout(() => window.location.reload(), 3000);
+    };
+  });
+</script>
+</head>
+<body></body>
+</html>
