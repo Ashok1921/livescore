@@ -12,13 +12,17 @@
     sendMessageToStreamlit("streamlit:setFrameHeight", { height: 0 });
   }
 
-  window.addEventListener("load", function() {
-    initialize();
+  let ws = null;
+  let wsUrl = null;
+  let reconnectDelay = 1000;
 
-    const ws = new WebSocket("ws://localhost:8000/ws/matches");
+  function connect() {
+    if (!wsUrl) return;
+    ws = new WebSocket(wsUrl);
 
     ws.onopen = function() {
       console.log("WS listener connected");
+      reconnectDelay = 1000;
     };
 
     ws.onmessage = function(event) {
@@ -29,10 +33,25 @@
     };
 
     ws.onclose = function() {
-      console.log("WS listener closed, retrying in 3s...");
-      setTimeout(() => window.location.reload(), 3000);
+      console.log("WS closed, retrying in " + reconnectDelay + "ms");
+      setTimeout(connect, reconnectDelay);
+      reconnectDelay = Math.min(reconnectDelay * 2, 15000);
     };
+
+    ws.onerror = function() {
+      ws.close();
+    };
+  }
+
+  window.addEventListener("message", function(event) {
+    const data = event.data;
+    if (data.type === "streamlit:render" && !wsUrl && data.args && data.args.ws_url) {
+      wsUrl = data.args.ws_url;
+      connect();
+    }
   });
+
+  window.addEventListener("load", initialize);
 </script>
 </head>
 <body></body>

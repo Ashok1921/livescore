@@ -8,6 +8,19 @@ import streamlit.components.v1 as components
 ws_listener = components.declare_component("ws_listener", path="components/ws_listener")
 
 API_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
+PUBLIC_API_URL = os.getenv("PUBLIC_BACKEND_URL", API_URL)
+
+
+def to_ws_url(http_url: str) -> str:
+    """Converts an http(s) backend URL into the matching ws(s) WebSocket URL."""
+    if http_url.startswith("https://"):
+        return "wss://" + http_url[len("https://"):] + "/ws/matches"
+    elif http_url.startswith("http://"):
+        return "ws://" + http_url[len("http://"):] + "/ws/matches"
+    return http_url
+
+
+WS_URL = to_ws_url(PUBLIC_API_URL)
 
 # --- Session state initialization ---
 if "token" not in st.session_state:
@@ -65,7 +78,7 @@ st.title("🏏 LiveScore")
 
 
 #websocket check
-ws_message = ws_listener(key="ws_listener")
+ws_message = ws_listener(key="ws_listener", ws_url=WS_URL)
 
 if st.session_state.skip_next_ws_check:
     st.session_state.skip_next_ws_check = False
