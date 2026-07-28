@@ -1,54 +1,64 @@
 # 🏏 LiveScore
 
-A full-stack live cricket score tracking application built with **FastAPI**, **PostgreSQL**, and **Streamlit** — fully containerized with **Docker**. Inspired by the architecture of the open-source [CricScore](https://github.com) project.
+A full-stack, production-style live match scoring application — built end-to-end with a FastAPI backend, PostgreSQL database, and a Streamlit frontend with real-time updates over WebSockets.
+
+**🔗 Live app:** https://livescore-frontend-ziwp.onrender.com
+**⚙️ API:** https://livescore-backend-z0x4.onrender.com
+
+> Note: hosted on Render's free tier, so the backend may take ~30–50 seconds to spin up on first load after a period of inactivity.
+
+---
 
 ## Features
 
-- Create matches between two teams
-- Track live scores with auto status transitions (`SCHEDULED` → `LIVE` → `COMPLETED`)
-- Update scores in real time via a simple web UI
-- Mark matches as completed (locks further score updates)
-- Delete matches
-- Auto-refreshing scoreboard (updates every 3 seconds, no manual refresh needed)
-- Fully containerized — one command spins up the database, API, and frontend
+- **Create, update, and complete matches** — track two teams and their live scores
+- **Real-time sync across clients** — score updates push instantly to every open browser tab via a custom WebSocket-based Streamlit component (no polling)
+- **JWT authentication** — admin login required to create/update/complete/delete matches; anyone can view live scores without logging in
+- **Match lifecycle rules** — scores lock automatically once a match is marked completed
+- **Automated test suite** — pytest coverage for all endpoints, including auth-protected routes and unauthenticated-access rejection
+- **Containerized & cloud-deployed** — Docker Compose for local development, deployed as separate services on Render
+
+---
 
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Backend API | FastAPI, SQLAlchemy |
-| Database | PostgreSQL 16 |
+| Backend | Python, FastAPI, SQLAlchemy |
+| Database | PostgreSQL |
 | Frontend | Streamlit |
-| Containerization | Docker, Docker Compose |
+| Real-time | Custom Streamlit component using the WebSocket API + Streamlit's component postMessage protocol |
+| Auth | JWT (python-jose) + bcrypt password hashing |
+| Testing | pytest |
+| Infra | Docker, Docker Compose, Render (cloud deployment) |
+
+---
 
 ## Architecture
 
 ```
-┌─────────────┐      HTTP      ┌─────────────┐      SQL      ┌──────────────┐
-│  Streamlit  │ ─────────────▶ │   FastAPI   │ ────────────▶ │  PostgreSQL  │
-│  Frontend   │ ◀───────────── │   Backend   │ ◀──────────── │   Database   │
-└─────────────┘                └─────────────┘                └──────────────┘
-   port 8501                      port 8000                     port 5432
+┌─────────────┐         HTTP (REST)         ┌──────────────┐
+│  Streamlit  │ ──────────────────────────▶ │   FastAPI    │
+│  Frontend   │ ◀────────────────────────── │   Backend    │
+│             │                              │              │
+│             │        WebSocket (wss)       │              │
+│             │ ◀──────────────────────────▶ │              │
+└─────────────┘                              └──────┬───────┘
+                                                     │
+                                                     ▼
+                                              ┌──────────────┐
+                                              │  PostgreSQL  │
+                                              └──────────────┘
 ```
 
-Each layer runs in its own Docker container, connected via a shared Docker Compose network.
+- The frontend calls the backend over standard REST for reads/writes.
+- On any match action (create/update/complete/delete), the backend broadcasts the change to all connected clients over a WebSocket, and each Streamlit client triggers a live UI refresh — without a manual reload or fixed polling interval.
 
-## API Endpoints
+---
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/matches/` | Create a new match |
-| `GET` | `/matches/` | List all matches |
-| `GET` | `/matches/{match_id}` | Get a single match |
-| `PATCH` | `/matches/{match_id}/score` | Update a match's score |
-| `PATCH` | `/matches/{match_id}/complete` | Mark a match as completed |
-| `DELETE` | `/matches/{match_id}` | Delete a match |
+## Running Locally
 
-Interactive API docs available at `/docs` (Swagger UI) once the backend is running.
-
-## Getting Started
-
-### Run with Docker (recommended)
+**Prerequisites:** Docker and Docker Compose installed.
 
 ```bash
 git clone https://github.com/Ashok1921/livescore.git
@@ -57,49 +67,34 @@ docker compose up --build
 ```
 
 - Frontend: http://localhost:8501
-- Backend docs: http://127.0.0.1:8000/docs
+- Backend API docs (Swagger): http://localhost:8000/docs
 
-### Run locally without Docker
+Set the following environment variables (see `docker-compose.yml`):
+- `DATABASE_URL`
+- `ADMIN_USERNAME`, `ADMIN_PASSWORD` — seeds an admin user on first startup
+- `JWT_SECRET_KEY`, `JWT_ALGORITHM`, `JWT_EXPIRE_MINUTES`
+
+## Running Tests
 
 ```bash
-# Terminal 1 — backend
-python -m venv venv
-venv\Scripts\Activate.ps1        # or `source venv/bin/activate` on macOS/Linux
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-
-# Terminal 2 — frontend
-venv\Scripts\Activate.ps1
-streamlit run streamlit_app.py
+pytest
 ```
 
-You'll need a local PostgreSQL instance and a `.env` file with a `DATABASE_URL` connection string.
+---
 
-## Project Structure
+## What This Project Demonstrates
 
-```
-livescore/
-├── app/
-│   ├── database.py       # DB connection/session setup
-│   ├── models.py         # SQLAlchemy models
-│   ├── schemas.py        # Pydantic request/response schemas
-│   └── routers/
-│       └── matches.py    # Match API endpoints
-├── streamlit_app.py       # Frontend UI
-├── Dockerfile.backend
-├── Dockerfile.frontend
-├── docker-compose.yml
-├── requirements.txt
-└── PROGRESS.md            # Development log
-```
+This was built as a hands-on learning project to go deep on a full production-style workflow rather than just a CRUD demo:
 
-## Roadmap
+- REST API design with proper resource lifecycle handling
+- Real-time communication over WebSockets, including handling browser sandboxing constraints in Streamlit and building a custom component from scratch
+- JWT-based authentication with protected vs public routes
+- Automated testing with authenticated and unauthenticated test cases
+- Dockerizing a multi-service app (backend, frontend, database)
+- Debugging and resolving real cloud-deployment issues: environment-specific networking (Docker-internal hostnames vs public URLs), missing production environment variables, and dependency version conflicts (bcrypt/passlib)
 
-- [ ] Match filtering/search
-- [ ] Ball-by-ball scoring detail
-- [ ] User authentication for match creation
-- [ ] Deployment to a cloud host
+---
 
-## License
+## Author
 
-This project is open source and available for learning purposes.
+Ashok — Generative AI & Agentic AI Developer
