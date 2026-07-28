@@ -282,6 +282,23 @@ Manually verified across two browser tabs: an action (create/update/complete/del
 
 
 
+## WebSocket Render Deployment Fix
+
+- Fixed hardcoded `ws://localhost:8000` in `ws_listener/index.html` — it was blocking any real deployment beyond local Docker.
+- Added `to_ws_url()` in `streamlit_app.py` to dynamically build `ws://` (local) or `wss://` (production) URLs.
+- Discovered a Docker-internal vs browser-facing URL mismatch: `BACKEND_URL` (used by Streamlit server-side) points to Docker's internal `backend` hostname, which the browser can't resolve. Added a separate `PUBLIC_BACKEND_URL` env var specifically for the browser-facing WebSocket connection.
+  - Locally: `BACKEND_URL=http://backend:8000`, `PUBLIC_BACKEND_URL=http://localhost:8000`
+  - On Render: both point to the same public HTTPS URL, since Render has no internal/public split.
+- Rewrote `ws_listener/index.html` to receive the WebSocket URL dynamically from Streamlit (via `streamlit:render` message) and reconnect automatically on disconnect, instead of doing a full page reload.
+- Deployed and verified live on Render: WebSocket connections accepted in logs (`"WebSocket /ws/matches" [accepted]`), confirmed real-time sync works across two browser tabs on the live URL.
+
+## Live Deployment Debugging (Render)
+
+- Admin login was failing on the live site (`Invalid username or password`) — root cause: `livescore-backend` on Render was missing `ADMIN_USERNAME` / `ADMIN_PASSWORD` env vars, so the startup admin-seed step was silently skipped.
+- After adding those, login still failed with a `500 Internal Server Error` on `/auth/login` — root cause: `JWT_SECRET_KEY`, `JWT_ALGORITHM`, `JWT_EXPIRE_MINUTES` were also missing from the Render backend's environment (only set locally).
+- Added all five env vars to `livescore-backend` on Render. Confirmed working end-to-end: admin login succeeds, JWT tokens issue correctly, real-time WebSocket sync works across tabs on the live deployment.
+
+**Status: Full app (auth, real-time updates, deployment) confirmed working live on Render.**
 
 ## How to resume a session
 
