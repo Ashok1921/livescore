@@ -1,6 +1,6 @@
 # 🏏 LiveScore
 
-A full-stack, production-style live match scoring application — built end-to-end with a FastAPI backend, PostgreSQL database, and a Streamlit frontend with real-time updates over WebSockets.
+A full-stack, production-style live match scoring application — built end-to-end with a FastAPI backend, PostgreSQL (Neon) database, and a Streamlit frontend with real-time updates over WebSockets.
 
 **🔗 Live app:** https://livescore-frontend-ziwp.onrender.com
 **⚙️ API:** https://livescore-backend-z0x4.onrender.com
@@ -25,7 +25,7 @@ A full-stack, production-style live match scoring application — built end-to-e
 | Layer | Technology |
 |---|---|
 | Backend | Python, FastAPI, SQLAlchemy |
-| Database | PostgreSQL |
+| Database | PostgreSQL, hosted on [Neon](https://neon.tech) (serverless Postgres) |
 | Frontend | Streamlit |
 | Real-time | Custom Streamlit component using the WebSocket API + Streamlit's component postMessage protocol |
 | Auth | JWT (python-jose) + bcrypt password hashing |
@@ -92,6 +92,7 @@ This was built as a hands-on learning project to go deep on a full production-st
 - Automated testing with authenticated and unauthenticated test cases
 - Dockerizing a multi-service app (backend, frontend, database)
 - Debugging and resolving real cloud-deployment issues: environment-specific networking (Docker-internal hostnames vs public URLs), missing production environment variables, and dependency version conflicts (bcrypt/passlib)
+- Migrating a live production database with zero data loss: backing up with `pg_dump`, restoring into a new provider with `pg_restore`, and cutting over the app's connection string without downtime to the frontend
 
 ---
 

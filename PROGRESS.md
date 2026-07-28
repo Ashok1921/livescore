@@ -280,8 +280,6 @@ Manually verified across two browser tabs: an action (create/update/complete/del
 
 - TBD — possible directions: revisit the toast display race, add more features, or move to deployment/polish
 
-
-
 ## WebSocket Render Deployment Fix
 
 - Fixed hardcoded `ws://localhost:8000` in `ws_listener/index.html` — it was blocking any real deployment beyond local Docker.
@@ -299,6 +297,18 @@ Manually verified across two browser tabs: an action (create/update/complete/del
 - Added all five env vars to `livescore-backend` on Render. Confirmed working end-to-end: admin login succeeds, JWT tokens issue correctly, real-time WebSocket sync works across tabs on the live deployment.
 
 **Status: Full app (auth, real-time updates, deployment) confirmed working live on Render.**
+
+## Database Migration: Render Postgres → Neon
+
+- Discovered Render's free Postgres databases expire 30 days after creation (permanent data deletion after a 14-day grace period) — not sustainable for a project meant to stay live long-term as a portfolio piece.
+- Backed up the live database using `pg_dump` (had to run via a Postgres 18 Docker container, since local pg_dump was v17 and Render's Postgres was v18 — version mismatch blocks pg_dump from newer servers).
+- Created a free Neon Postgres project (permanent free tier, no expiration), same region (Singapore) and Postgres version (18) as the original.
+- Restored the backup into Neon using `pg_restore --no-owner --no-privileges`.
+- Verified restored data matched exactly (admin user with correct bcrypt hash, existing match records intact).
+- Updated `DATABASE_URL` on Render's `livescore-backend` to point to Neon; redeployed and confirmed the full app (auth, match data, WebSocket real-time sync) works identically against the new database.
+- Render's original Postgres database can now be left to expire — no further action needed there.
+
+**Status: LiveScore now runs on a permanent free-tier database, removing the recurring expiration risk.**
 
 ## How to resume a session
 
